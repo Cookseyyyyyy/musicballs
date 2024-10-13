@@ -5,6 +5,7 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
+import { Noise } from 'noisejs';
 import './App.css';
 
 const NOTES = [
@@ -19,8 +20,14 @@ const MIN_RADIUS = 15;  // Size at which particles are removed
 const RADIUS_DECREASE_FACTOR = 0.9;  // How much smaller particles get on collision (e.g., 0.98 = 2% smaller)
 const INITIAL_VELOCITY = 10;  // Initial velocity of particles
 const VELOCITY_INCREASE_FACTOR = 1.02;  // How much faster particles get on collision
-const MAX_VOLUME = 0.1; // Adjust this value to control the overall volume (0 to 1)
+const MAX_VOLUME = 0.3; // Adjust this value to control the overall volume (0 to 1)
 const MAX_POLYPHONY = 16; // Maximum number of simultaneous sounds
+
+// Turbulence parameters
+const TURBULENCE_STRENGTH = 0.2;
+const TURBULENCE_FREQUENCY = 0.05;
+
+const noise = new Noise(Math.random());
 
 const darkTheme = createTheme({
   palette: {
@@ -38,14 +45,39 @@ function App() {
   const [audioInitialized, setAudioInitialized] = useState(false);
   const animationFrameIdRef = useRef(null);
   const particlesRef = useRef(particles);
+  const reverbNodeRef = useRef(null);
 
   useEffect(() => {
     particlesRef.current = particles;
   }, [particles]);
 
+  const createImpulseResponse = useCallback((duration, decay, reverse = false) => {
+    const sampleRate = audioContextRef.current.sampleRate;
+    const length = sampleRate * duration;
+    const impulse = audioContextRef.current.createBuffer(2, length, sampleRate);
+    const left = impulse.getChannelData(0);
+    const right = impulse.getChannelData(1);
+
+    for (let i = 0; i < length; i++) {
+      const n = reverse ? length - i : i;
+      left[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay);
+      right[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay);
+    }
+
+    return impulse;
+  }, []);
+
   const initializeAudio = useCallback(async () => {
     if (!audioInitialized) {
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Create and connect the reverb node
+      reverbNodeRef.current = audioContextRef.current.createConvolver();
+      const impulseResponse = createImpulseResponse(1, 2); // 2 seconds duration, decay factor of 2
+      reverbNodeRef.current.buffer = impulseResponse;
+      reverbNodeRef.current.connect(audioContextRef.current.destination);
+
+      // Load audio samples
       for (const note of NOTES) {
         try {
           const encodedNote = encodeURIComponent(note);
@@ -59,7 +91,7 @@ function App() {
       }
       setAudioInitialized(true);
     }
-  }, [audioInitialized]);
+  }, [audioInitialized, createImpulseResponse]);
 
   const playNote = useCallback((note, x, radius) => {
     if (audioInitialized && audioBuffersRef.current[note]) {
@@ -96,7 +128,7 @@ function App() {
       // Connect the nodes
       source.connect(panner);
       panner.connect(gainNode);
-      gainNode.connect(audioContextRef.current.destination);
+      gainNode.connect(reverbNodeRef.current);
 
       source.start();
       activeSourcesRef.current[note] = source;
@@ -107,10 +139,17 @@ function App() {
     }
   }, [audioInitialized]);
 
-  const updateParticle = useCallback((particle, canvas, particles) => {
+  const updateParticle = useCallback((particle, canvas, particles, time) => {
     let { x, y, vx, vy, radius, note } = particle;
     const nextX = x + vx;
     const nextY = y + vy;
+
+    // Apply turbulence
+    const turbulenceX = noise.perlin3(x * TURBULENCE_FREQUENCY, y * TURBULENCE_FREQUENCY, time * 0.1) * TURBULENCE_STRENGTH;
+    const turbulenceY = noise.perlin3(x * TURBULENCE_FREQUENCY + 100, y * TURBULENCE_FREQUENCY + 100, time * 0.1) * TURBULENCE_STRENGTH;
+    
+    vx += turbulenceX;
+    vy += turbulenceY;
 
     let collided = false;
     let collisionX = x;
@@ -183,9 +222,11 @@ function App() {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    const time = Date.now() * 0.001; // Current time in seconds
+    
     const updatedParticles = particlesRef.current
       .filter(particle => particle.radius > MIN_RADIUS)
-      .map(particle => updateParticle(particle, canvas, particlesRef.current));
+      .map(particle => updateParticle(particle, canvas, particlesRef.current, time));
 
     setParticles(updatedParticles);
 
@@ -300,7 +341,11 @@ function App() {
             <Select
               value={selectedNote}
               onChange={(e) => setSelectedNote(e.target.value)}
-              sx={{ minWidth: 120, marginBottom: 2 }}
+              sx={{
+                minWidth: 120,
+                marginBottom: 2,
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              }}
             >
               {NOTES.map(note => (
                 <MenuItem key={note} value={note}>{note}</MenuItem>
@@ -308,7 +353,16 @@ function App() {
             </Select>
           </Grid>
           <Grid item>
-            <Button variant="contained" onClick={addParticle}>
+            <Button
+              variant="contained"
+              onClick={addParticle}
+              sx={{
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                },
+              }}
+            >
               Add Particle
             </Button>
           </Grid>
