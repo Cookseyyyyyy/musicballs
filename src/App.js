@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import Button from '@mui/material/Button';
-import Grid from '@mui/material/Grid';
+import { Piano, KeyboardShortcuts, MidiNumbers } from 'react-piano';
+import 'react-piano/dist/styles.css';
 import { Noise } from 'noisejs';
 import './App.css';
+import './PianoStyles.css';
 
 const NOTES = [
   'EP_A#2', 'EP_A#3', 'EP_A2', 'EP_A3', 'EP_B2', 'EP_B3', 'EP_C#2', 'EP_C#3',
@@ -35,9 +34,38 @@ const darkTheme = createTheme({
   },
 });
 
+// Function to convert our note format to MidiNumbers format
+const convertToMidiNote = (note) => {
+  const [, noteName, octave] = note.match(/EP_([A-G]#?)(\d)/);
+  return `${noteName}${octave}`;
+};
+
+// Sort notes and get first and last
+const sortedNotes = [...NOTES].sort((a, b) => {
+  const noteA = convertToMidiNote(a);
+  const noteB = convertToMidiNote(b);
+  return MidiNumbers.fromNote(noteA) - MidiNumbers.fromNote(noteB);
+});
+
+const firstNote = MidiNumbers.fromNote(convertToMidiNote(sortedNotes[0]));
+const lastNote = MidiNumbers.fromNote(convertToMidiNote(sortedNotes[sortedNotes.length - 1]));
+
+const keyboardShortcuts = KeyboardShortcuts.create({
+  firstNote: firstNote,
+  lastNote: lastNote,
+  keyboardConfig: KeyboardShortcuts.HOME_ROW,
+});
+
+const flatToSharp = {
+  'Db': 'C#',
+  'Eb': 'D#',
+  'Gb': 'F#',
+  'Ab': 'G#',
+  'Bb': 'A#'
+};
+
 function App() {
   const [particles, setParticles] = useState([]);
-  const [selectedNote, setSelectedNote] = useState(NOTES[0]);
   const canvasRef = useRef(null);
   const audioContextRef = useRef(null);
   const audioBuffersRef = useRef({});
@@ -279,7 +307,7 @@ function App() {
     };
   }, [animate]);
 
-  const getRandomPosition = (canvas, existingParticles, radius) => {
+  const getRandomPosition = useCallback((canvas, existingParticles, radius) => {
     const margin = canvas.width * 0.2; // 20% margin from edges
     const minDistance = INITIAL_RADIUS * 2; // Minimum distance from other particles
 
@@ -301,12 +329,13 @@ function App() {
 
     // If we can't find a suitable position after 100 attempts, return the center
     return { x: canvas.width / 2, y: canvas.height / 2 };
-  };
+  }, []);
 
-  const addParticle = async () => {
+  const addParticle = useCallback(async (note) => {
+    console.log('addParticle called with note:', note);
     await initializeAudio();
     const canvas = canvasRef.current;
-    const randomSize = INITIAL_RADIUS * (0.7 + Math.random() * 0.3); // Random size between 70% and 100% of INITIAL_RADIUS
+    const randomSize = INITIAL_RADIUS * (0.7 + Math.random() * 0.3);
     const { x, y } = getRandomPosition(canvas, particlesRef.current, randomSize);
     const newParticle = {
       x,
@@ -314,59 +343,59 @@ function App() {
       vx: (Math.random() - 0.5) * INITIAL_VELOCITY,
       vy: (Math.random() - 0.5) * INITIAL_VELOCITY,
       radius: randomSize,
-      note: selectedNote,
+      note: note,
     };
-    setParticles(prevParticles => [...prevParticles, newParticle]);
-  };
+    console.log('Adding new particle:', newParticle);
+    setParticles(prevParticles => {
+      console.log('Previous particles:', prevParticles);
+      return [...prevParticles, newParticle];
+    });
+  }, [initializeAudio, getRandomPosition]);
+
+  const addParticleForNote = useCallback((midiNumber) => {
+    console.log('addParticleForNote called with midiNumber:', midiNumber);
+    console.log('NOTES array:', NOTES);
+    console.log('MidiNumber attributes:', MidiNumbers.getAttributes(midiNumber));
+    
+    const { note, octave } = MidiNumbers.getAttributes(midiNumber);
+    
+    // Convert flat to sharp if necessary
+    const noteName = flatToSharp[note.slice(0, -1)] || note.slice(0, -1);
+    const constructedNote = `EP_${noteName}${octave}`;
+    
+    console.log('Constructed note:', constructedNote);
+    if (NOTES.includes(constructedNote)) {
+      console.log('Note found in NOTES array, calling addParticle');
+      addParticle(constructedNote);
+    } else {
+      console.log('Note not found in NOTES array');
+    }
+  }, [addParticle]);
 
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <div className="App">
-        <Grid
-          container
-          direction="column"
-          justifyContent="center"
-          alignItems="center"
+        <div
           style={{
             position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
             zIndex: 1,
           }}
         >
-          <Grid item>
-            <Select
-              value={selectedNote}
-              onChange={(e) => setSelectedNote(e.target.value)}
-              sx={{
-                minWidth: 120,
-                marginBottom: 2,
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              }}
-            >
-              {NOTES.map(note => (
-                <MenuItem key={note} value={note}>{note}</MenuItem>
-              ))}
-            </Select>
-          </Grid>
-          <Grid item>
-            <Button
-              variant="contained"
-              onClick={addParticle}
-              sx={{
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                },
-              }}
-            >
-              Add Particle
-            </Button>
-          </Grid>
-        </Grid>
+          <Piano
+            noteRange={{ first: firstNote, last: lastNote }}
+            playNote={(midiNumber) => {
+              console.log('Piano playNote called with midiNumber:', midiNumber);
+              addParticleForNote(midiNumber);
+            }}
+            stopNote={() => {}}
+            width={600}
+            renderNoteLabel={() => {}}
+          />
+        </div>
         <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0 }} />
       </div>
     </ThemeProvider>

@@ -1,0 +1,59 @@
+.react-piano {
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+.ReactPiano__Keyboard {
+  position: relative;
+  display: flex;
+}
+
+.ReactPiano__Key {
+  display: flex;
+}
+
+.ReactPiano__Key--accidental {
+  background: rgb(85, 85, 85);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-top: 1px solid transparent;
+  border-radius: 0 0 4px 4px;
+  cursor: pointer;
+  height: 66%;
+  z-index: 1;
+  position: absolute;
+  top: 0;
+}
+
+.ReactPiano__Key--natural {
+  background: rgba(246, 245, 243, 0.05);
+  border: 1px solid rgba(136, 136, 136, 0.5);
+  border-radius: 0 0 6px 6px;
+  cursor: pointer;
+  z-index: 0;
+  flex: 1;
+  margin-right: 1px;
+}
+
+.ReactPiano__Key--natural:last-child {
+  margin-right: 0;
+}
+
+.ReactPiano__Key--active {
+  background: rgba(58, 200, 218, 0.7);
+}
+
+.ReactPiano__Key--active.ReactPiano__Key--accidental {
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-top: 1px solid rgba(58, 200, 218, 0.7);
+  height: 65%;
+}
+
+.ReactPiano__Key--active.ReactPiano__Key--natural {
+  border: 1px solid rgba(58, 200, 218, 0.7);
+  height: 98%;
+}
+
+.ReactPiano__NoteLabelContainer {
+  display: none;
+}
