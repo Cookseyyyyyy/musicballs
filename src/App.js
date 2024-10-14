@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Piano, KeyboardShortcuts, MidiNumbers } from 'react-piano';
+import { Piano, MidiNumbers } from 'react-piano';
 import 'react-piano/dist/styles.css';
 import { Noise } from 'noisejs';
 import './App.css';
