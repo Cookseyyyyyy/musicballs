@@ -50,11 +50,7 @@ const sortedNotes = [...NOTES].sort((a, b) => {
 const firstNote = MidiNumbers.fromNote(convertToMidiNote(sortedNotes[0]));
 const lastNote = MidiNumbers.fromNote(convertToMidiNote(sortedNotes[sortedNotes.length - 1]));
 
-const keyboardShortcuts = KeyboardShortcuts.create({
-  firstNote: firstNote,
-  lastNote: lastNote,
-  keyboardConfig: KeyboardShortcuts.HOME_ROW,
-});
+
 
 const flatToSharp = {
   'Db': 'C#',
