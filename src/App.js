@@ -97,7 +97,7 @@ function App() {
       
       // Create and connect the reverb node
       reverbNodeRef.current = audioContextRef.current.createConvolver();
-      const impulseResponse = createImpulseResponse(1, 2); // 2 seconds duration, decay factor of 2
+      const impulseResponse = createImpulseResponse(0.5, 2); // 2 seconds duration, decay factor of 2
       reverbNodeRef.current.buffer = impulseResponse;
       reverbNodeRef.current.connect(audioContextRef.current.destination);
 
