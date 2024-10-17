@@ -7,22 +7,21 @@ import { Noise } from 'noisejs';
 import './App.css';
 import './PianoStyles.css';
 
+// Adjusted NOTES array to use flat notes ('b') instead of sharps ('#')
 const NOTES = [
-  'EP_A#2', 'EP_A#3', 'EP_A2', 'EP_A3', 'EP_B2', 'EP_B3', 'EP_C#2', 'EP_C#3',
-  'EP_C2', 'EP_C3', 'EP_D#2', 'EP_D#3', 'EP_D2', 'EP_D3', 'EP_E2', 'EP_E3',
-  'EP_F#2', 'EP_F#3', 'EP_F2', 'EP_F3', 'EP_G#2', 'EP_G#3', 'EP_G2', 'EP_G3'
+  'EP_Bb2', 'EP_Bb3', 'EP_A2', 'EP_A3', 'EP_B2', 'EP_B3', 'EP_Db2', 'EP_Db3',
+  'EP_C2', 'EP_C3', 'EP_Eb2', 'EP_Eb3', 'EP_D2', 'EP_D3', 'EP_E2', 'EP_E3',
+  'EP_Gb2', 'EP_Gb3', 'EP_F2', 'EP_F3', 'EP_Ab2', 'EP_Ab3', 'EP_G2', 'EP_G3'
 ];
 
-// Adjustable parameters
-const INITIAL_RADIUS = 150;  // Initial size of particles
-const MIN_RADIUS = 15;  // Size at which particles are removed
-const RADIUS_DECREASE_FACTOR = 0.9;  // How much smaller particles get on collision (e.g., 0.98 = 2% smaller)
-const INITIAL_VELOCITY = 10;  // Initial velocity of particles
-const VELOCITY_INCREASE_FACTOR = 1.02;  // How much faster particles get on collision
-const MAX_VOLUME = 0.3; // Adjust this value to control the overall volume (0 to 1)
-const MAX_POLYPHONY = 16; // Maximum number of simultaneous sounds
-
-// Turbulence parameters
+// Adjustable parameters (remain the same)
+const INITIAL_RADIUS = 150;
+const MIN_RADIUS = 15;
+const RADIUS_DECREASE_FACTOR = 0.9;
+const INITIAL_VELOCITY = 10;
+const VELOCITY_INCREASE_FACTOR = 1.02;
+const MAX_VOLUME = 0.3;
+const MAX_POLYPHONY = 16;
 const TURBULENCE_STRENGTH = 0.2;
 const TURBULENCE_FREQUENCY = 0.05;
 
@@ -34,31 +33,24 @@ const darkTheme = createTheme({
   },
 });
 
-// Function to convert our note format to MidiNumbers format
-const convertToMidiNote = (note) => {
-  const [, noteName, octave] = note.match(/EP_([A-G]#?)(\d)/);
-  return `${noteName}${octave}`;
+// Simplified function to convert MIDI number to note name
+const midiNumberToNoteName = (midiNumber) => {
+  const noteNames = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const noteName = noteNames[midiNumber % 12];
+  const octave = Math.floor(midiNumber / 12) - 1;
+  return `EP_${noteName}${octave}`;
 };
 
-// Sort notes and get first and last
-const sortedNotes = [...NOTES].sort((a, b) => {
-  const noteA = convertToMidiNote(a);
-  const noteB = convertToMidiNote(b);
-  return MidiNumbers.fromNote(noteA) - MidiNumbers.fromNote(noteB);
-});
+// Update the firstNote and lastNote calculation
+const firstNote = Math.min(...NOTES.map(note => {
+  const [, noteName, octave] = note.match(/EP_([A-G]b?)(\d)/);
+  return MidiNumbers.fromNote(`${noteName}${octave}`);
+}));
 
-const firstNote = MidiNumbers.fromNote(convertToMidiNote(sortedNotes[0]));
-const lastNote = MidiNumbers.fromNote(convertToMidiNote(sortedNotes[sortedNotes.length - 1]));
-
-
-
-const flatToSharp = {
-  'Db': 'C#',
-  'Eb': 'D#',
-  'Gb': 'F#',
-  'Ab': 'G#',
-  'Bb': 'A#'
-};
+const lastNote = Math.max(...NOTES.map(note => {
+  const [, noteName, octave] = note.match(/EP_([A-G]b?)(\d)/);
+  return MidiNumbers.fromNote(`${noteName}${octave}`);
+}));
 
 function App() {
   const [particles, setParticles] = useState([]);
@@ -94,10 +86,10 @@ function App() {
   const initializeAudio = useCallback(async () => {
     if (!audioInitialized) {
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      
+
       // Create and connect the reverb node
       reverbNodeRef.current = audioContextRef.current.createConvolver();
-      const impulseResponse = createImpulseResponse(0.5, 2); // 2 seconds duration, decay factor of 2
+      const impulseResponse = createImpulseResponse(0.5, 2);
       reverbNodeRef.current.buffer = impulseResponse;
       reverbNodeRef.current.connect(audioContextRef.current.destination);
 
@@ -137,14 +129,14 @@ function App() {
 
       // Create a stereo panner node
       const panner = audioContextRef.current.createStereoPanner();
-      
+
       // Calculate pan value based on x position (-1 to 1)
       const panValue = (x / canvasRef.current.width) * 2 - 1;
       panner.pan.setValueAtTime(panValue, audioContextRef.current.currentTime);
 
       // Create a gain node for volume control
       const gainNode = audioContextRef.current.createGain();
-      
+
       // Calculate volume based on particle size (0.1 to 1)
       const volumeValue = Math.max(0.1, Math.min(1, radius / INITIAL_RADIUS));
       gainNode.gain.setValueAtTime(volumeValue * MAX_VOLUME, audioContextRef.current.currentTime);
@@ -171,7 +163,7 @@ function App() {
     // Apply turbulence
     const turbulenceX = noise.perlin3(x * TURBULENCE_FREQUENCY, y * TURBULENCE_FREQUENCY, time * 0.1) * TURBULENCE_STRENGTH;
     const turbulenceY = noise.perlin3(x * TURBULENCE_FREQUENCY + 100, y * TURBULENCE_FREQUENCY + 100, time * 0.1) * TURBULENCE_STRENGTH;
-    
+
     vx += turbulenceX;
     vy += turbulenceY;
 
@@ -245,9 +237,9 @@ function App() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     const time = Date.now() * 0.001; // Current time in seconds
-    
+
     const updatedParticles = particlesRef.current
       .filter(particle => particle.radius > MIN_RADIUS)
       .map(particle => updateParticle(particle, canvas, particlesRef.current, time));
@@ -256,7 +248,7 @@ function App() {
 
     updatedParticles.forEach(particle => {
       const hue = NOTES.indexOf(particle.note) * 15;
-      
+
       // Create glow effect
       const gradient = ctx.createRadialGradient(
         particle.x, particle.y, 0,
@@ -264,7 +256,7 @@ function App() {
       );
       gradient.addColorStop(0, `hsla(${hue}, 100%, 50%, 0.4)`);
       gradient.addColorStop(1, `hsla(${hue}, 100%, 50%, 0)`);
-      
+
       ctx.beginPath();
       ctx.arc(particle.x, particle.y, particle.radius * 1.5, 0, Math.PI * 2);
       ctx.fillStyle = gradient;
@@ -350,19 +342,11 @@ function App() {
 
   const addParticleForNote = useCallback((midiNumber) => {
     console.log('addParticleForNote called with midiNumber:', midiNumber);
-    console.log('NOTES array:', NOTES);
-    console.log('MidiNumber attributes:', MidiNumbers.getAttributes(midiNumber));
-    
-    const { note, octave } = MidiNumbers.getAttributes(midiNumber);
-    
-    // Convert flat to sharp if necessary
-    const noteName = flatToSharp[note.slice(0, -1)] || note.slice(0, -1);
-    const constructedNote = `EP_${noteName}${octave}`;
-    
-    console.log('Constructed note:', constructedNote);
-    if (NOTES.includes(constructedNote)) {
+    const noteName = midiNumberToNoteName(midiNumber);
+    console.log('Constructed note:', noteName);
+    if (NOTES.includes(noteName)) {
       console.log('Note found in NOTES array, calling addParticle');
-      addParticle(constructedNote);
+      addParticle(noteName);
     } else {
       console.log('Note not found in NOTES array');
     }
