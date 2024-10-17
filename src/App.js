@@ -97,7 +97,7 @@ function App() {
       for (const note of NOTES) {
         try {
           const encodedNote = encodeURIComponent(note);
-          const response = await fetch(`/samples/ElectricPiano/${encodedNote}.wav`);
+          const response = await fetch(`/samples/ElectricPiano/${encodedNote}.mp3`);
           const arrayBuffer = await response.arrayBuffer();
           const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
           audioBuffersRef.current[note] = audioBuffer;
